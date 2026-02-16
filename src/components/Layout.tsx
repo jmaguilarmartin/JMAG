@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, List, FolderPlus, LogOut, Menu, Plus
+  LayoutDashboard, List, FolderPlus, LogOut, Menu, Plus, Plane
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/activities', icon: List, label: 'Actividades' },
+  { to: '/my-trips', icon: Plane, label: 'Mis Viajes' },
   { to: '/categories', icon: FolderPlus, label: 'Categorias' },
 ]
 

@@ -7,6 +7,7 @@ import { Dashboard } from './pages/Dashboard'
 import { Activities } from './pages/Activities'
 import { ActivityForm } from './pages/ActivityForm'
 import { Categories } from './pages/Categories'
+import { MyTrips } from './pages/MyTrips'
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
                     <Route path="/activities" element={<Activities />} />
                     <Route path="/activities/new" element={<ActivityForm />} />
                     <Route path="/activities/:id/edit" element={<ActivityForm />} />
+                    <Route path="/my-trips" element={<MyTrips />} />
                     <Route path="/categories" element={<Categories />} />
                   </Routes>
                 </Layout>
