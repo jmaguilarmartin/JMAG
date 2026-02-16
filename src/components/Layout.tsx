@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, List, FolderPlus, LogOut, Menu, X, Plus
+  LayoutDashboard, List, FolderPlus, LogOut, Menu, Plus
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
