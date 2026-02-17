@@ -170,6 +170,8 @@ const countries: Record<string, CountryInfo> = {
   'ethiopia': { alpha3: 'ETH', lat: 9.15, lng: 40.49 },
   'mozambique': { alpha3: 'MOZ', lat: -18.67, lng: 35.53 },
   'namibia': { alpha3: 'NAM', lat: -22.96, lng: 18.49 },
+  'botswana': { alpha3: 'BWA', lat: -22.33, lng: 24.68 },
+  'botsuana': { alpha3: 'BWA', lat: -22.33, lng: 24.68 },
   'madagascar': { alpha3: 'MDG', lat: -18.77, lng: 46.87 },
   'mauricio': { alpha3: 'MUS', lat: -20.35, lng: 57.55 },
   'mauritius': { alpha3: 'MUS', lat: -20.35, lng: 57.55 },
