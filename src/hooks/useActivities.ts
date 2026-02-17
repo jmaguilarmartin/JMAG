@@ -22,9 +22,7 @@ export function useActivities(filters?: ActivityFilters) {
     if (filters?.category_id) {
       query = query.eq('category_id', filters.category_id)
     }
-    if (filters?.search) {
-      query = query.ilike('title', `%${filters.search}%`)
-    }
+    // search is applied client-side to include custom fields
     if (filters?.rating) {
       query = query.eq('rating', filters.rating)
     }
@@ -36,8 +34,23 @@ export function useActivities(filters?: ActivityFilters) {
     }
 
     const { data, count: totalCount } = await query
-    setActivities((data as Activity[]) ?? [])
-    setCount(totalCount ?? 0)
+    let result = (data as Activity[]) ?? []
+
+    if (filters?.search) {
+      const q = filters.search.toLowerCase()
+      result = result.filter(a => {
+        if (a.title.toLowerCase().includes(q)) return true
+        if (a.notes?.toLowerCase().includes(q)) return true
+        if (a.category?.name?.toLowerCase().includes(q)) return true
+        for (const v of Object.values(a.fields ?? {})) {
+          if (String(v).toLowerCase().includes(q)) return true
+        }
+        return false
+      })
+    }
+
+    setActivities(result)
+    setCount(filters?.search ? result.length : (totalCount ?? 0))
     setLoading(false)
   }, [user, filters?.category_id, filters?.search, filters?.rating, filters?.date_from, filters?.date_to])
 
