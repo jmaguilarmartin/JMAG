@@ -1,21 +1,23 @@
-import { useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts'
-import { Activity as ActivityIcon, Star, Calendar, TrendingUp, ArrowRight } from 'lucide-react'
+import { Activity as ActivityIcon, Star, Calendar, TrendingUp, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useActivities } from '../hooks/useActivities'
 import { useCategories } from '../hooks/useCategories'
 import { StatsCard } from '../components/StatsCard'
 import { CategoryIcon } from '../components/CategoryIcon'
 import { StarRating } from '../components/StarRating'
-import { format } from 'date-fns'
+import { format, lastDayOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 export function Dashboard() {
   const { activities, loading: loadingActivities } = useActivities()
   const { categories, loading: loadingCategories } = useCategories()
+  const navigate = useNavigate()
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
 
   const stats = useMemo(() => {
     const totalActivities = activities.length
@@ -31,6 +33,15 @@ export function Dashboard() {
     return { totalActivities, avgRating, thisYear: thisYear.length, thisMonth: thisMonth.length }
   }, [activities])
 
+  const availableYears = useMemo(() => {
+    const years = new Set<number>()
+    years.add(new Date().getFullYear())
+    for (const a of activities) {
+      years.add(new Date(a.date).getFullYear())
+    }
+    return Array.from(years).sort()
+  }, [activities])
+
   const categoryData = useMemo(() => {
     const counts = new Map<string, number>()
     for (const a of activities) {
@@ -43,29 +54,24 @@ export function Dashboard() {
   }, [activities, categories])
 
   const monthlyData = useMemo(() => {
-    const months = new Map<string, number>()
-    const now = new Date()
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const key = format(d, 'yyyy-MM')
+    const result: { month: string; actividades: number; yearMonth: string }[] = []
+    for (let m = 0; m < 12; m++) {
+      const d = new Date(selectedYear, m, 1)
+      const yearMonth = format(d, 'yyyy-MM')
       const label = format(d, 'MMM', { locale: es })
-      months.set(key, 0)
-      months.set(`label-${key}`, label as unknown as number)
-    }
-    for (const a of activities) {
-      const key = a.date.substring(0, 7)
-      if (months.has(key)) {
-        months.set(key, (months.get(key) ?? 0) + 1)
-      }
-    }
-    const result: { month: string; actividades: number }[] = []
-    for (const [key, value] of months) {
-      if (!key.startsWith('label-')) {
-        result.push({ month: months.get(`label-${key}`) as unknown as string, actividades: value })
-      }
+      const count = activities.filter(a => a.date.substring(0, 7) === yearMonth).length
+      result.push({ month: label, actividades: count, yearMonth })
     }
     return result
-  }, [activities])
+  }, [activities, selectedYear])
+
+  const handleBarClick = (data: { yearMonth: string }) => {
+    if (!data?.yearMonth) return
+    const d = new Date(data.yearMonth + '-01')
+    const dateFrom = format(d, 'yyyy-MM-dd')
+    const dateTo = format(lastDayOfMonth(d), 'yyyy-MM-dd')
+    navigate(`/activities?date_from=${dateFrom}&date_to=${dateTo}`)
+  }
 
   const recentActivities = useMemo(() => {
     return activities.slice(0, 5)
@@ -118,7 +124,26 @@ export function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Monthly bar chart */}
         <div className="lg:col-span-2 bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-700 mb-4">Actividades por mes</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-gray-700">Actividades por mes</h3>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSelectedYear(y => y - 1)}
+                disabled={selectedYear <= availableYears[0]}
+                className="p-1 rounded hover:bg-gray-100 text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <span className="text-sm font-medium text-gray-700 min-w-[4ch] text-center">{selectedYear}</span>
+              <button
+                onClick={() => setSelectedYear(y => y + 1)}
+                disabled={selectedYear >= new Date().getFullYear()}
+                className="p-1 rounded hover:bg-gray-100 text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
           {monthlyData.some(d => d.actividades > 0) ? (
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={monthlyData}>
@@ -126,14 +151,21 @@ export function Dashboard() {
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Bar dataKey="actividades" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                <Bar
+                  dataKey="actividades"
+                  fill="#6366f1"
+                  radius={[4, 4, 0, 0]}
+                  cursor="pointer"
+                  onClick={(_: unknown, index: number) => handleBarClick(monthlyData[index])}
+                />
               </BarChart>
             </ResponsiveContainer>
           ) : (
             <div className="h-[250px] flex items-center justify-center text-gray-400">
-              Sin datos todavia
+              Sin datos en {selectedYear}
             </div>
           )}
+          <p className="text-xs text-gray-400 mt-2 text-center">Haz clic en un mes para ver sus actividades</p>
         </div>
 
         {/* Category pie chart */}

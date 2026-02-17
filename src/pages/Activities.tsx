@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Search, Filter, Plus, Trash2, Edit2, X } from 'lucide-react'
 import { useActivities } from '../hooks/useActivities'
 import { useCategories } from '../hooks/useCategories'
@@ -9,9 +9,18 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import type { ActivityFilters } from '../types'
 
+function getInitialFilters(params: URLSearchParams): ActivityFilters {
+  const f: ActivityFilters = {}
+  if (params.get('date_from')) f.date_from = params.get('date_from')!
+  if (params.get('date_to')) f.date_to = params.get('date_to')!
+  if (params.get('category_id')) f.category_id = params.get('category_id')!
+  return f
+}
+
 export function Activities() {
-  const [filters, setFilters] = useState<ActivityFilters>({})
-  const [showFilters, setShowFilters] = useState(false)
+  const [searchParams] = useSearchParams()
+  const [filters, setFilters] = useState<ActivityFilters>(() => getInitialFilters(searchParams))
+  const [showFilters, setShowFilters] = useState(() => Object.keys(getInitialFilters(searchParams)).length > 0)
   const { activities, loading, deleteActivity } = useActivities(filters)
   const { categories } = useCategories()
   const [deleting, setDeleting] = useState<string | null>(null)

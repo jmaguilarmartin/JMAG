@@ -174,7 +174,7 @@ export function Categories() {
               {fields.length > 0 ? (
                 <div className="space-y-2">
                   {fields.map((field, i) => (
-                    <div key={field.key} className="flex gap-2 items-center">
+                    <div key={i} className="flex gap-2 items-center">
                       <input
                         type="text"
                         value={field.label}
