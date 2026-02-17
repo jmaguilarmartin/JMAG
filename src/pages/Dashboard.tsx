@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell
+  PieChart, Pie, Cell, Legend
 } from 'recharts'
 import { Activity as ActivityIcon, Star, Calendar, TrendingUp, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useActivities } from '../hooks/useActivities'
@@ -53,17 +53,27 @@ export function Dashboard() {
       .sort((a, b) => b.value - a.value)
   }, [activities, categories])
 
+  const activeCategories = useMemo(() => {
+    const yearActivities = activities.filter(a => a.date.startsWith(selectedYear.toString()))
+    const usedCategoryIds = new Set(yearActivities.map(a => a.category_id))
+    return categories.filter(c => usedCategoryIds.has(c.id))
+  }, [activities, categories, selectedYear])
+
   const monthlyData = useMemo(() => {
-    const result: { month: string; actividades: number; yearMonth: string }[] = []
+    const result: Record<string, string | number>[] = []
     for (let m = 0; m < 12; m++) {
       const d = new Date(selectedYear, m, 1)
       const yearMonth = format(d, 'yyyy-MM')
       const label = format(d, 'MMM', { locale: es })
-      const count = activities.filter(a => a.date.substring(0, 7) === yearMonth).length
-      result.push({ month: label, actividades: count, yearMonth })
+      const monthActivities = activities.filter(a => a.date.substring(0, 7) === yearMonth)
+      const row: Record<string, string | number> = { month: label, yearMonth }
+      for (const cat of activeCategories) {
+        row[cat.name] = monthActivities.filter(a => a.category_id === cat.id).length
+      }
+      result.push(row)
     }
     return result
-  }, [activities, selectedYear])
+  }, [activities, selectedYear, activeCategories])
 
   const handleBarClick = (data: { yearMonth: string }) => {
     if (!data?.yearMonth) return
@@ -144,20 +154,32 @@ export function Dashboard() {
               </button>
             </div>
           </div>
-          {monthlyData.some(d => d.actividades > 0) ? (
-            <ResponsiveContainer width="100%" height={250}>
+          {activeCategories.length > 0 ? (
+            <ResponsiveContainer width="100%" height={280}>
               <BarChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Bar
-                  dataKey="actividades"
-                  fill="#6366f1"
-                  radius={[4, 4, 0, 0]}
-                  cursor="pointer"
-                  onClick={(_: unknown, index: number) => handleBarClick(monthlyData[index])}
+                <Tooltip
+                  contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
+                  itemSorter={(item) => -(Number(item.value) || 0)}
                 />
+                <Legend
+                  wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
+                  iconType="circle"
+                  iconSize={8}
+                />
+                {activeCategories.map((cat, i) => (
+                  <Bar
+                    key={cat.id}
+                    dataKey={cat.name}
+                    stackId="stack"
+                    fill={cat.color}
+                    cursor="pointer"
+                    radius={i === activeCategories.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                    onClick={(_: unknown, index: number) => handleBarClick(monthlyData[index] as { yearMonth: string })}
+                  />
+                ))}
               </BarChart>
             </ResponsiveContainer>
           ) : (
