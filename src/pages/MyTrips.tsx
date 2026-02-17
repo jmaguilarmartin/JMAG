@@ -101,6 +101,10 @@ export function MyTrips() {
             Pais visitado
           </span>
           <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-full bg-rose-500 inline-block" />
+            Ciudad
+          </span>
+          <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full bg-orange-500 inline-block" />
             Destino
           </span>

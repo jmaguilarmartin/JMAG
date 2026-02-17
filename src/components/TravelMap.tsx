@@ -7,11 +7,19 @@ import {
   ZoomableGroup,
 } from 'react-simple-maps'
 import { getCountryAlpha3, getCountryCoords } from '../data/countries'
+import { getCityCoords } from '../data/cities'
 import type { Activity } from '../types'
 
 const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
 
 type TripMarker = {
+  name: string
+  coordinates: [number, number]
+  trips: number
+  country: string
+}
+
+type CityMarker = {
   name: string
   coordinates: [number, number]
   trips: number
@@ -25,27 +33,46 @@ type Props = {
 export function TravelMap({ activities }: Props) {
   const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null)
 
-  // Build set of visited country codes and markers
+  // Build set of visited country codes, country markers and city markers
   const visitedCountries = new Set<string>()
-  const markerMap = new Map<string, TripMarker>()
+  const countryMarkerMap = new Map<string, TripMarker>()
+  const cityMarkerMap = new Map<string, CityMarker>()
 
   for (const activity of activities) {
     const country = (activity.fields?.country as string) || ''
-    const destination = (activity.fields?.destination as string) || activity.title
+    const destination = (activity.fields?.destination as string) || ''
 
     const alpha3 = getCountryAlpha3(country)
     if (alpha3) visitedCountries.add(alpha3)
 
-    const coords = getCountryCoords(country)
-    if (coords) {
-      const key = `${destination}-${country}`.toLowerCase()
-      const existing = markerMap.get(key)
+    // Try city-level coordinates from destination field
+    const cityCoords = getCityCoords(destination)
+    if (cityCoords) {
+      const key = `${destination}`.toLowerCase()
+      const existing = cityMarkerMap.get(key)
       if (existing) {
         existing.trips += 1
       } else {
-        markerMap.set(key, {
+        cityMarkerMap.set(key, {
           name: destination,
-          coordinates: coords,
+          coordinates: cityCoords,
+          trips: 1,
+          country,
+        })
+      }
+    }
+
+    // Country-level marker as fallback when no city coords
+    const countryCoords = getCountryCoords(country)
+    if (countryCoords && !cityCoords) {
+      const key = `${destination || activity.title}-${country}`.toLowerCase()
+      const existing = countryMarkerMap.get(key)
+      if (existing) {
+        existing.trips += 1
+      } else {
+        countryMarkerMap.set(key, {
+          name: destination || activity.title,
+          coordinates: countryCoords,
           trips: 1,
           country,
         })
@@ -53,7 +80,8 @@ export function TravelMap({ activities }: Props) {
     }
   }
 
-  const markers = Array.from(markerMap.values())
+  const countryMarkers = Array.from(countryMarkerMap.values())
+  const cityMarkers = Array.from(cityMarkerMap.values())
 
   return (
     <div className="relative bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -106,9 +134,10 @@ export function TravelMap({ activities }: Props) {
             }
           </Geographies>
 
-          {markers.map((marker, i) => (
+          {/* Country-level markers (fallback when city not found) */}
+          {countryMarkers.map((marker, i) => (
             <Marker
-              key={i}
+              key={`country-${i}`}
               coordinates={marker.coordinates}
               onMouseEnter={(e) =>
                 setTooltip({
@@ -122,6 +151,30 @@ export function TravelMap({ activities }: Props) {
               <circle
                 r={4}
                 fill="#f97316"
+                stroke="#fff"
+                strokeWidth={1.5}
+                style={{ cursor: 'pointer' }}
+              />
+            </Marker>
+          ))}
+
+          {/* City-level markers */}
+          {cityMarkers.map((marker, i) => (
+            <Marker
+              key={`city-${i}`}
+              coordinates={marker.coordinates}
+              onMouseEnter={(e) =>
+                setTooltip({
+                  text: `${marker.name}${marker.country ? ` (${marker.country})` : ''} — ${marker.trips} viaje${marker.trips > 1 ? 's' : ''}`,
+                  x: e.clientX,
+                  y: e.clientY,
+                })
+              }
+              onMouseLeave={() => setTooltip(null)}
+            >
+              <circle
+                r={4}
+                fill="#f43f5e"
                 stroke="#fff"
                 strokeWidth={1.5}
                 style={{ cursor: 'pointer' }}
