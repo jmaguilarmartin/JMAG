@@ -1,6 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plane, MapPin, Calendar, Plus } from 'lucide-react'
+import { Plane, MapPin, Calendar, Plus, X } from 'lucide-react'
 import { TravelMap } from '../components/TravelMap'
 import { StarRating } from '../components/StarRating'
 import { useActivities } from '../hooks/useActivities'
@@ -19,6 +19,30 @@ export function MyTrips() {
   const { activities: trips, loading } = useActivities(
     travelCategory ? { category_id: travelCategory.id } : undefined
   )
+
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
+
+  const handleCountryClick = (countryCode: string) => {
+    setSelectedCountry(prev => prev === countryCode ? null : countryCode)
+  }
+
+  const filteredTrips = useMemo(() => {
+    if (!selectedCountry) return trips
+    return trips.filter(t => {
+      const country = (t.fields?.country as string) || ''
+      const alpha3 = getCountryAlpha3(country)
+      return alpha3 === selectedCountry
+    })
+  }, [trips, selectedCountry])
+
+  const selectedCountryName = useMemo(() => {
+    if (!selectedCountry) return null
+    const trip = trips.find(t => {
+      const country = (t.fields?.country as string) || ''
+      return getCountryAlpha3(country) === selectedCountry
+    })
+    return trip ? (trip.fields?.country as string) : null
+  }, [selectedCountry, trips])
 
   // Stats
   const countriesVisited = useMemo(() => {
@@ -94,7 +118,11 @@ export function MyTrips() {
       {/* Map */}
       <div>
         <h2 className="text-lg font-semibold text-gray-900 mb-3">Mapa de viajes</h2>
-        <TravelMap activities={trips} />
+        <TravelMap
+          activities={trips}
+          onCountryClick={handleCountryClick}
+          selectedCountry={selectedCountry}
+        />
         <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-sm bg-cyan-500 inline-block" />
@@ -113,10 +141,23 @@ export function MyTrips() {
 
       {/* Trip list */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">
-          Todos los viajes ({totalTrips})
-        </h2>
-        {trips.length === 0 ? (
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-gray-900">
+            {selectedCountry
+              ? `Viajes a ${selectedCountryName} (${filteredTrips.length})`
+              : `Todos los viajes (${totalTrips})`}
+          </h2>
+          {selectedCountry && (
+            <button
+              onClick={() => setSelectedCountry(null)}
+              className="flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 px-2.5 py-1.5 rounded-lg bg-primary-50 hover:bg-primary-100 transition-colors"
+            >
+              <X size={14} />
+              Ver todos
+            </button>
+          )}
+        </div>
+        {filteredTrips.length === 0 && !selectedCountry ? (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
             <Plane className="mx-auto text-gray-300 mb-3" size={40} />
             <p className="text-gray-500">Aun no tienes viajes registrados.</p>
@@ -128,9 +169,19 @@ export function MyTrips() {
               Registrar mi primer viaje
             </Link>
           </div>
+        ) : filteredTrips.length === 0 && selectedCountry ? (
+          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+            <p className="text-gray-500">No hay viajes registrados en {selectedCountryName}.</p>
+            <button
+              onClick={() => setSelectedCountry(null)}
+              className="inline-flex items-center gap-2 mt-4 px-4 py-2 text-primary-600 hover:text-primary-700 text-sm font-medium"
+            >
+              Ver todos los viajes
+            </button>
+          </div>
         ) : (
           <div className="grid gap-3">
-            {trips.map((trip) => (
+            {filteredTrips.map((trip) => (
               <Link
                 key={trip.id}
                 to={`/activities/${trip.id}/edit`}

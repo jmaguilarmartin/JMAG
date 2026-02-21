@@ -28,9 +28,11 @@ type CityMarker = {
 
 type Props = {
   activities: Activity[]
+  onCountryClick?: (countryCode: string) => void
+  selectedCountry?: string | null
 }
 
-export function TravelMap({ activities }: Props) {
+export function TravelMap({ activities, onCountryClick, selectedCountry }: Props) {
   const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null)
 
   // Build set of visited country codes, country markers and city markers
@@ -93,16 +95,25 @@ export function TravelMap({ activities }: Props) {
           <Geographies geography={GEO_URL}>
             {({ geographies }) =>
               geographies.map((geo) => {
+                const geoCode = geo.properties.ISO_A3 !== '-99' ? geo.properties.ISO_A3 : geo.id
                 const isVisited = visitedCountries.has(geo.properties.ISO_A3) ||
                   visitedCountries.has(geo.id)
+                const isSelected = selectedCountry && (
+                  geo.properties.ISO_A3 === selectedCountry || geo.id === selectedCountry
+                )
                 return (
                   <Geography
                     key={geo.rsmKey}
                     geography={geo}
+                    onClick={() => {
+                      if (isVisited && onCountryClick) {
+                        onCountryClick(geoCode)
+                      }
+                    }}
                     onMouseEnter={(e) => {
                       if (isVisited) {
                         setTooltip({
-                          text: geo.properties.NAME,
+                          text: `${geo.properties.NAME}${onCountryClick ? ' (clic para filtrar)' : ''}`,
                           x: e.clientX,
                           y: e.clientY,
                         })
@@ -111,20 +122,20 @@ export function TravelMap({ activities }: Props) {
                     onMouseLeave={() => setTooltip(null)}
                     style={{
                       default: {
-                        fill: isVisited ? '#06b6d4' : '#e5e7eb',
-                        stroke: '#fff',
-                        strokeWidth: 0.5,
+                        fill: isSelected ? '#0369a1' : isVisited ? '#06b6d4' : '#e5e7eb',
+                        stroke: isSelected ? '#fff' : '#fff',
+                        strokeWidth: isSelected ? 1 : 0.5,
                         outline: 'none',
                       },
                       hover: {
-                        fill: isVisited ? '#0891b2' : '#d1d5db',
+                        fill: isSelected ? '#075985' : isVisited ? '#0891b2' : '#d1d5db',
                         stroke: '#fff',
                         strokeWidth: 0.5,
                         outline: 'none',
                         cursor: isVisited ? 'pointer' : 'default',
                       },
                       pressed: {
-                        fill: isVisited ? '#0e7490' : '#d1d5db',
+                        fill: isSelected ? '#0c4a6e' : isVisited ? '#0e7490' : '#d1d5db',
                         outline: 'none',
                       },
                     }}
@@ -139,6 +150,12 @@ export function TravelMap({ activities }: Props) {
             <Marker
               key={`country-${i}`}
               coordinates={marker.coordinates}
+              onClick={() => {
+                if (onCountryClick) {
+                  const alpha3 = getCountryAlpha3(marker.country)
+                  if (alpha3) onCountryClick(alpha3)
+                }
+              }}
               onMouseEnter={(e) =>
                 setTooltip({
                   text: `${marker.name} (${marker.country}) — ${marker.trips} viaje${marker.trips > 1 ? 's' : ''}`,
@@ -163,6 +180,12 @@ export function TravelMap({ activities }: Props) {
             <Marker
               key={`city-${i}`}
               coordinates={marker.coordinates}
+              onClick={() => {
+                if (onCountryClick) {
+                  const alpha3 = getCountryAlpha3(marker.country)
+                  if (alpha3) onCountryClick(alpha3)
+                }
+              }}
               onMouseEnter={(e) =>
                 setTooltip({
                   text: `${marker.name}${marker.country ? ` (${marker.country})` : ''} — ${marker.trips} viaje${marker.trips > 1 ? 's' : ''}`,

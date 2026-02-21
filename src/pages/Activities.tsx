@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Search, Filter, Plus, Trash2, Edit2, X } from 'lucide-react'
 import { useActivities } from '../hooks/useActivities'
@@ -14,6 +14,12 @@ function getInitialFilters(params: URLSearchParams): ActivityFilters {
   if (params.get('date_from')) f.date_from = params.get('date_from')!
   if (params.get('date_to')) f.date_to = params.get('date_to')!
   if (params.get('category_id')) f.category_id = params.get('category_id')!
+  if (Object.keys(f).length > 0) return f
+
+  const saved = sessionStorage.getItem('activityFilters')
+  if (saved) {
+    try { return JSON.parse(saved) } catch { /* ignore */ }
+  }
   return f
 }
 
@@ -32,8 +38,19 @@ export function Activities() {
     setDeleting(null)
   }
 
+  useEffect(() => {
+    const hasAny = filters.category_id || filters.search || filters.rating || filters.date_from || filters.date_to
+    if (hasAny) {
+      sessionStorage.setItem('activityFilters', JSON.stringify(filters))
+    } else {
+      sessionStorage.removeItem('activityFilters')
+    }
+  }, [filters])
+
   const clearFilters = () => {
     setFilters({})
+    setShowFilters(false)
+    sessionStorage.removeItem('activityFilters')
   }
 
   const hasFilters = filters.category_id || filters.search || filters.rating || filters.date_from || filters.date_to
@@ -79,6 +96,58 @@ export function Activities() {
             Filtros
           </button>
         </div>
+
+        {!showFilters && hasFilters && (
+          <div className="bg-primary-50 rounded-xl p-3 border border-primary-200">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-wrap text-xs">
+                <Filter size={14} className="text-primary-600 shrink-0" />
+                <span className="font-medium text-primary-700">Filtro activo:</span>
+                {filters.category_id && (
+                  <span className="bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full">
+                    {categories.find(c => c.id === filters.category_id)?.name ?? 'Categoría'}
+                  </span>
+                )}
+                {filters.search && (
+                  <span className="bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full">
+                    &quot;{filters.search}&quot;
+                  </span>
+                )}
+                {filters.rating && (
+                  <span className="bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full">
+                    {filters.rating}+ ★
+                  </span>
+                )}
+                {filters.date_from && (
+                  <span className="bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full">
+                    Desde: {filters.date_from}
+                  </span>
+                )}
+                {filters.date_to && (
+                  <span className="bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full">
+                    Hasta: {filters.date_to}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => setShowFilters(true)}
+                  className="flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 px-2 py-1 rounded hover:bg-primary-100 transition-colors"
+                >
+                  <Edit2 size={12} />
+                  Modificar
+                </button>
+                <button
+                  onClick={clearFilters}
+                  className="flex items-center gap-1 text-xs font-medium text-red-500 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 size={12} />
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {showFilters && (
           <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm space-y-3">
