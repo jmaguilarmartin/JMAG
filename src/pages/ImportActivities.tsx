@@ -76,7 +76,7 @@ export function ImportActivities() {
         const workbook = XLSX.read(data, { type: 'array' })
         const sheetName = workbook.SheetNames[0]
         const sheet = workbook.Sheets[sheetName]
-        const json = XLSX.utils.sheet_to_json<ExcelRow>(sheet, { defval: '' })
+        const json = XLSX.utils.sheet_to_json<ExcelRow>(sheet, { defval: '', raw: false })
 
         if (json.length === 0) {
           setError('El archivo no contiene datos')
