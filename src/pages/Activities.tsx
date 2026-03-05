@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Search, Filter, Plus, Trash2, Edit2, X, Upload } from 'lucide-react'
+import { Search, Filter, Plus, Trash2, Edit2, X, Upload, Download } from 'lucide-react'
+// @ts-ignore
+import * as XLSX from 'xlsx'
 import { useActivities } from '../hooks/useActivities'
 import { useCategories } from '../hooks/useCategories'
 import { StarRating } from '../components/StarRating'
@@ -55,6 +57,52 @@ export function Activities() {
 
   const hasFilters = filters.category_id || filters.search || filters.rating || filters.date_from || filters.date_to
 
+  const handleExport = () => {
+    if (activities.length === 0) return
+
+    // Collect all unique custom field keys across all activities with their labels
+    const fieldKeyLabelMap = new Map<string, string>()
+    activities.forEach(a => {
+      const cat = a.category
+      if (cat?.fields) {
+        cat.fields.forEach(f => {
+          if (!fieldKeyLabelMap.has(f.key)) fieldKeyLabelMap.set(f.key, f.label)
+        })
+      }
+      // Also include keys that exist in activity.fields but might not be in category definition
+      if (a.fields) {
+        Object.keys(a.fields).forEach(k => {
+          if (!fieldKeyLabelMap.has(k)) fieldKeyLabelMap.set(k, k)
+        })
+      }
+    })
+
+    const customFieldKeys = Array.from(fieldKeyLabelMap.keys())
+
+    const rows = activities.map(a => {
+      const row: Record<string, string | number | null> = {
+        'Titulo': a.title,
+        'Categoria': a.category?.name ?? '',
+        'Fecha inicio': a.date,
+        'Fecha fin': a.date_end ?? '',
+        'Valoracion': a.rating ?? '',
+        'Etiquetas': a.tags.join(', '),
+        'Notas': a.notes ?? '',
+      }
+      // Add custom fields as columns
+      customFieldKeys.forEach(key => {
+        const label = fieldKeyLabelMap.get(key) ?? key
+        row[label] = a.fields?.[key] ?? ''
+      })
+      return row
+    })
+
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Actividades')
+    XLSX.writeFile(wb, 'actividades.xlsx')
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -63,6 +111,14 @@ export function Activities() {
           <p className="text-gray-500 mt-1">{activities.length} registros</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            disabled={activities.length === 0}
+            className="flex items-center gap-2 border border-gray-300 text-gray-700 bg-white px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
+          >
+            <Download size={18} />
+            <span className="hidden sm:inline">Exportar</span>
+          </button>
           <Link
             to="/activities/import"
             className="flex items-center gap-2 border border-primary-300 text-primary-700 bg-primary-50 px-4 py-2.5 rounded-lg font-medium hover:bg-primary-100 transition-colors text-sm"
