@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Search, Filter, Plus, Trash2, Edit2, X } from 'lucide-react'
+import { Search, Filter, Plus, Trash2, Edit2, X, Upload } from 'lucide-react'
 import { useActivities } from '../hooks/useActivities'
 import { useCategories } from '../hooks/useCategories'
 import { StarRating } from '../components/StarRating'
@@ -62,13 +62,22 @@ export function Activities() {
           <h1 className="text-2xl font-bold text-gray-900">Actividades</h1>
           <p className="text-gray-500 mt-1">{activities.length} registros</p>
         </div>
-        <Link
-          to="/activities/new"
-          className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2.5 rounded-lg font-medium hover:bg-primary-700 transition-colors text-sm"
-        >
-          <Plus size={18} />
-          <span className="hidden sm:inline">Nueva actividad</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/activities/import"
+            className="flex items-center gap-2 border border-primary-300 text-primary-700 bg-primary-50 px-4 py-2.5 rounded-lg font-medium hover:bg-primary-100 transition-colors text-sm"
+          >
+            <Upload size={18} />
+            <span className="hidden sm:inline">Importar</span>
+          </Link>
+          <Link
+            to="/activities/new"
+            className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2.5 rounded-lg font-medium hover:bg-primary-700 transition-colors text-sm"
+          >
+            <Plus size={18} />
+            <span className="hidden sm:inline">Nueva actividad</span>
+          </Link>
+        </div>
       </div>
 
       {/* Search & filter bar */}

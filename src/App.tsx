@@ -8,6 +8,7 @@ import { Activities } from './pages/Activities'
 import { ActivityForm } from './pages/ActivityForm'
 import { Categories } from './pages/Categories'
 import { MyTrips } from './pages/MyTrips'
+import { ImportActivities } from './pages/ImportActivities'
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
                     <Route path="/activities" element={<Activities />} />
+                    <Route path="/activities/import" element={<ImportActivities />} />
                     <Route path="/activities/new" element={<ActivityForm />} />
                     <Route path="/activities/:id/edit" element={<ActivityForm />} />
                     <Route path="/my-trips" element={<MyTrips />} />
