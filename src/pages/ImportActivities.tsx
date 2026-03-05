@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Upload, ArrowRight, Check, AlertCircle } from 'lucide-react'
+// @ts-ignore
 import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -84,7 +85,7 @@ export function ImportActivities() {
 
         const cols = Object.keys(json[0])
         setExcelColumns(cols)
-        setExcelRows(json.map(row => {
+        setExcelRows(json.map((row: Record<string, unknown>) => {
           const clean: ExcelRow = {}
           for (const key of cols) {
             clean[key] = String(row[key] ?? '')
