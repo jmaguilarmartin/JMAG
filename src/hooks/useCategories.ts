@@ -14,6 +14,11 @@ const PRESET_CATEGORIES = [
     { key: 'venue', label: 'Lugar', type: 'text' },
     { key: 'city', label: 'Ciudad', type: 'text' },
   ]},
+  { name: 'Teatros', icon: 'theater', color: '#7c3aed', fields: [
+    { key: 'actor', label: 'Actor/Actriz', type: 'text' },
+    { key: 'venue', label: 'Teatro', type: 'text' },
+    { key: 'city', label: 'Ciudad', type: 'text' },
+  ]},
   { name: 'Viajes', icon: 'plane', color: '#06b6d4', fields: [
     { key: 'destination', label: 'Destino', type: 'text' },
     { key: 'country', label: 'Pais', type: 'text' },

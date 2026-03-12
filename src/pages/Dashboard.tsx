@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts'
-import { Activity as ActivityIcon, Star, Calendar, TrendingUp, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Activity as ActivityIcon, Star, Calendar, TrendingUp, ArrowRight, ChevronLeft, ChevronRight, Mic2, MapPin, PartyPopper, User, Building2, Globe, Ruler, Navigation } from 'lucide-react'
 import { useActivities } from '../hooks/useActivities'
 import { useCategories } from '../hooks/useCategories'
 import { StatsCard } from '../components/StatsCard'
@@ -12,6 +12,23 @@ import { CategoryIcon } from '../components/CategoryIcon'
 import { StarRating } from '../components/StarRating'
 import { format, lastDayOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { lookupCity } from '../data/cities'
+
+const HOME_COORDS = { lat: 40.42, lng: -3.70 } // Madrid
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function formatKm(km: number): string {
+  if (km >= 1000) return `${(km / 1000).toFixed(1).replace('.', ',')}k km`
+  return `${Math.round(km)} km`
+}
 
 export function Dashboard() {
   const { activities, loading: loadingActivities } = useActivities()
@@ -86,6 +103,61 @@ export function Dashboard() {
   const recentActivities = useMemo(() => {
     return activities.slice(0, 5)
   }, [activities])
+
+  const categoryIndicators = useMemo(() => {
+    const catByName = Object.fromEntries(categories.map(c => [c.name, c]))
+    const currentYear = new Date().getFullYear().toString()
+
+    // Conciertos
+    const conciertosCat = catByName['Conciertos']
+    const conciertos = conciertosCat ? activities.filter(a => a.category_id === conciertosCat.id) : []
+    const conciertoStats = {
+      artistas: new Set(conciertos.map(a => String(a.fields?.artist ?? '')).filter(Boolean)).size,
+      ciudades: new Set(conciertos.map(a => String(a.fields?.city ?? '')).filter(Boolean)).size,
+      festivales: conciertos.filter(a =>
+        String(a.fields?.venue ?? '').toLowerCase().includes('festival') ||
+        a.title.toLowerCase().includes('festival')
+      ).length,
+    }
+
+    // Teatros
+    const teatrosCat = catByName['Teatros']
+    const teatros = teatrosCat ? activities.filter(a => a.category_id === teatrosCat.id) : []
+    const teatroStats = {
+      actores: new Set(teatros.map(a => String(a.fields?.actor ?? '')).filter(Boolean)).size,
+      ciudades: new Set(teatros.map(a => String(a.fields?.city ?? '')).filter(Boolean)).size,
+      venues: new Set(teatros.map(a => String(a.fields?.venue ?? '')).filter(Boolean)).size,
+    }
+
+    // Viajes
+    const viajesCat = catByName['Viajes']
+    const viajes = viajesCat ? activities.filter(a => a.category_id === viajesCat.id) : []
+    const viajesThisYear = viajes.filter(a => a.date.startsWith(currentYear))
+
+    const calcKm = (list: typeof viajes) =>
+      list.reduce((sum, a) => {
+        const dest = String(a.fields?.destination ?? '')
+        const city = lookupCity(dest)
+        if (!city) return sum
+        return sum + haversineKm(HOME_COORDS.lat, HOME_COORDS.lng, city.lat, city.lng) * 2
+      }, 0)
+
+    const viajeStats = {
+      destinos: new Set(viajes.map(a => String(a.fields?.destination ?? '')).filter(Boolean)).size,
+      paises: new Set(viajes.map(a => String(a.fields?.country ?? '')).filter(Boolean)).size,
+      kmTotales: calcKm(viajes),
+      kmEsteAnyo: calcKm(viajesThisYear),
+    }
+
+    return {
+      conciertos: conciertoStats,
+      hasConciertoData: conciertos.length > 0,
+      teatros: teatroStats,
+      hasTeatroData: teatros.length > 0,
+      viajes: viajeStats,
+      hasViajeData: viajes.length > 0,
+    }
+  }, [activities, categories])
 
   if (loadingActivities || loadingCategories) {
     return (
@@ -231,6 +303,102 @@ export function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Category-specific indicators */}
+      {(categoryIndicators.hasConciertoData || categoryIndicators.hasTeatroData || categoryIndicators.hasViajeData) && (
+        <div>
+          <h2 className="text-base font-semibold text-gray-700 mb-3">Indicadores por categoría</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+
+            {/* Conciertos */}
+            {categoryIndicators.hasConciertoData && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 text-white" style={{ backgroundColor: '#ec4899' }}>
+                  <CategoryIcon icon="music" size={16} />
+                  <span className="text-sm font-semibold">Conciertos</span>
+                </div>
+                <div className="grid grid-cols-3 divide-x divide-gray-100">
+                  <div className="flex flex-col items-center gap-1 p-4">
+                    <Mic2 size={18} className="text-pink-400" />
+                    <span className="text-xl font-bold text-gray-900">{categoryIndicators.conciertos.artistas}</span>
+                    <span className="text-xs text-gray-500 text-center">Artistas</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 p-4">
+                    <MapPin size={18} className="text-pink-400" />
+                    <span className="text-xl font-bold text-gray-900">{categoryIndicators.conciertos.ciudades}</span>
+                    <span className="text-xs text-gray-500 text-center">Ciudades</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 p-4">
+                    <PartyPopper size={18} className="text-pink-400" />
+                    <span className="text-xl font-bold text-gray-900">{categoryIndicators.conciertos.festivales}</span>
+                    <span className="text-xs text-gray-500 text-center">Festivales</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Teatros */}
+            {categoryIndicators.hasTeatroData && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 text-white" style={{ backgroundColor: '#7c3aed' }}>
+                  <CategoryIcon icon="theater" size={16} />
+                  <span className="text-sm font-semibold">Teatros</span>
+                </div>
+                <div className="grid grid-cols-3 divide-x divide-gray-100">
+                  <div className="flex flex-col items-center gap-1 p-4">
+                    <User size={18} className="text-violet-400" />
+                    <span className="text-xl font-bold text-gray-900">{categoryIndicators.teatros.actores}</span>
+                    <span className="text-xs text-gray-500 text-center">Actores</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 p-4">
+                    <MapPin size={18} className="text-violet-400" />
+                    <span className="text-xl font-bold text-gray-900">{categoryIndicators.teatros.ciudades}</span>
+                    <span className="text-xs text-gray-500 text-center">Ciudades</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 p-4">
+                    <Building2 size={18} className="text-violet-400" />
+                    <span className="text-xl font-bold text-gray-900">{categoryIndicators.teatros.venues}</span>
+                    <span className="text-xs text-gray-500 text-center">Teatros</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Viajes */}
+            {categoryIndicators.hasViajeData && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 text-white" style={{ backgroundColor: '#06b6d4' }}>
+                  <CategoryIcon icon="plane" size={16} />
+                  <span className="text-sm font-semibold">Viajes</span>
+                </div>
+                <div className="grid grid-cols-2 divide-x divide-gray-100">
+                  <div className="flex flex-col items-center gap-1 p-4 border-b border-gray-100">
+                    <Navigation size={18} className="text-cyan-400" />
+                    <span className="text-xl font-bold text-gray-900">{categoryIndicators.viajes.destinos}</span>
+                    <span className="text-xs text-gray-500 text-center">Destinos</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 p-4 border-b border-gray-100">
+                    <Globe size={18} className="text-cyan-400" />
+                    <span className="text-xl font-bold text-gray-900">{categoryIndicators.viajes.paises}</span>
+                    <span className="text-xs text-gray-500 text-center">Países</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 p-4">
+                    <Ruler size={18} className="text-cyan-400" />
+                    <span className="text-xl font-bold text-gray-900">{formatKm(categoryIndicators.viajes.kmTotales)}</span>
+                    <span className="text-xs text-gray-500 text-center">Km totales</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 p-4">
+                    <Calendar size={18} className="text-cyan-400" />
+                    <span className="text-xl font-bold text-gray-900">{formatKm(categoryIndicators.viajes.kmEsteAnyo)}</span>
+                    <span className="text-xs text-gray-500 text-center">Km este año</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
 
       {/* Recent activities */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
