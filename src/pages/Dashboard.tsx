@@ -323,7 +323,7 @@ export function Dashboard() {
                   <CategoryIcon icon="music" size={16} />
                   <span className="text-sm font-semibold">Conciertos</span>
                 </div>
-                <div className="grid grid-cols-4 divide-x divide-gray-100">
+                <div className="grid grid-cols-3 divide-x divide-gray-100">
                   <div className="flex flex-col items-center gap-1 p-4">
                     <Mic2 size={18} className="text-pink-400" />
                     <span className="text-xl font-bold text-gray-900">{categoryIndicators.conciertos.artistas}</span>
@@ -342,20 +342,14 @@ export function Dashboard() {
                   {categoryIndicators.conciertos.sinCiudad > 0 ? (
                     <Link
                       to={categoryIndicators.conciertos.sinCiudadUrl}
-                      className="flex flex-col items-center gap-1 p-4 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer"
+                      className="col-span-3 flex items-center justify-center gap-2 p-3 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer"
                       title="Ver conciertos sin ciudad"
                     >
-                      <AlertTriangle size={18} className="text-amber-500" />
-                      <span className="text-xl font-bold text-amber-600">{categoryIndicators.conciertos.sinCiudad}</span>
-                      <span className="text-xs text-amber-600 text-center font-medium">Sin ciudad</span>
+                      <AlertTriangle size={16} className="text-amber-500" />
+                      <span className="text-sm font-bold text-amber-600">{categoryIndicators.conciertos.sinCiudad}</span>
+                      <span className="text-xs text-amber-600 font-medium">concierto{categoryIndicators.conciertos.sinCiudad !== 1 ? 's' : ''} sin ciudad</span>
                     </Link>
-                  ) : (
-                    <div className="flex flex-col items-center gap-1 p-4">
-                      <AlertTriangle size={18} className="text-gray-200" />
-                      <span className="text-xl font-bold text-gray-300">0</span>
-                      <span className="text-xs text-gray-300 text-center">Sin ciudad</span>
-                    </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             )}
