@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts'
-import { Activity as ActivityIcon, Star, Calendar, TrendingUp, ArrowRight, ChevronLeft, ChevronRight, Mic2, MapPin, PartyPopper, User, Building2, Globe, Ruler, Navigation } from 'lucide-react'
+import { Activity as ActivityIcon, Star, Calendar, TrendingUp, ArrowRight, ChevronLeft, ChevronRight, Mic2, MapPin, PartyPopper, User, Building2, Globe, Ruler, Navigation, AlertTriangle } from 'lucide-react'
 import { useActivities } from '../hooks/useActivities'
 import { useCategories } from '../hooks/useCategories'
 import { StatsCard } from '../components/StatsCard'
@@ -111,6 +111,7 @@ export function Dashboard() {
     // Conciertos
     const conciertosCat = catByName['Conciertos']
     const conciertos = conciertosCat ? activities.filter(a => a.category_id === conciertosCat.id) : []
+    const conciertosSinCiudad = conciertos.filter(a => !a.fields?.city || String(a.fields.city).trim() === '')
     const conciertoStats = {
       artistas: new Set(conciertos.map(a => String(a.fields?.artist ?? '')).filter(Boolean)).size,
       ciudades: new Set(conciertos.map(a => String(a.fields?.city ?? '')).filter(Boolean)).size,
@@ -118,6 +119,8 @@ export function Dashboard() {
         String(a.fields?.venue ?? '').toLowerCase().includes('festival') ||
         a.title.toLowerCase().includes('festival')
       ).length,
+      sinCiudad: conciertosSinCiudad.length,
+      sinCiudadUrl: conciertosCat ? `/activities?category_id=${conciertosCat.id}&missing_field=city` : '',
     }
 
     // Teatros
@@ -142,11 +145,14 @@ export function Dashboard() {
         return sum + haversineKm(HOME_COORDS.lat, HOME_COORDS.lng, city.lat, city.lng) * 2
       }, 0)
 
+    const viajesSinDestino = viajes.filter(a => !a.fields?.destination || String(a.fields.destination).trim() === '')
     const viajeStats = {
       destinos: new Set(viajes.map(a => String(a.fields?.destination ?? '')).filter(Boolean)).size,
       paises: new Set(viajes.map(a => String(a.fields?.country ?? '')).filter(Boolean)).size,
       kmTotales: calcKm(viajes),
       kmEsteAnyo: calcKm(viajesThisYear),
+      sinDestino: viajesSinDestino.length,
+      sinDestinoUrl: viajesCat ? `/activities?category_id=${viajesCat.id}&missing_field=destination` : '',
     }
 
     return {
@@ -317,7 +323,7 @@ export function Dashboard() {
                   <CategoryIcon icon="music" size={16} />
                   <span className="text-sm font-semibold">Conciertos</span>
                 </div>
-                <div className="grid grid-cols-3 divide-x divide-gray-100">
+                <div className="grid grid-cols-4 divide-x divide-gray-100">
                   <div className="flex flex-col items-center gap-1 p-4">
                     <Mic2 size={18} className="text-pink-400" />
                     <span className="text-xl font-bold text-gray-900">{categoryIndicators.conciertos.artistas}</span>
@@ -333,6 +339,23 @@ export function Dashboard() {
                     <span className="text-xl font-bold text-gray-900">{categoryIndicators.conciertos.festivales}</span>
                     <span className="text-xs text-gray-500 text-center">Festivales</span>
                   </div>
+                  {categoryIndicators.conciertos.sinCiudad > 0 ? (
+                    <Link
+                      to={categoryIndicators.conciertos.sinCiudadUrl}
+                      className="flex flex-col items-center gap-1 p-4 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer"
+                      title="Ver conciertos sin ciudad"
+                    >
+                      <AlertTriangle size={18} className="text-amber-500" />
+                      <span className="text-xl font-bold text-amber-600">{categoryIndicators.conciertos.sinCiudad}</span>
+                      <span className="text-xs text-amber-600 text-center font-medium">Sin ciudad</span>
+                    </Link>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1 p-4">
+                      <AlertTriangle size={18} className="text-gray-200" />
+                      <span className="text-xl font-bold text-gray-300">0</span>
+                      <span className="text-xs text-gray-300 text-center">Sin ciudad</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -382,16 +405,27 @@ export function Dashboard() {
                     <span className="text-xl font-bold text-gray-900">{categoryIndicators.viajes.paises}</span>
                     <span className="text-xs text-gray-500 text-center">Países</span>
                   </div>
-                  <div className="flex flex-col items-center gap-1 p-4">
+                  <div className="flex flex-col items-center gap-1 p-4 border-b border-gray-100">
                     <Ruler size={18} className="text-cyan-400" />
                     <span className="text-xl font-bold text-gray-900">{formatKm(categoryIndicators.viajes.kmTotales)}</span>
                     <span className="text-xs text-gray-500 text-center">Km totales</span>
                   </div>
-                  <div className="flex flex-col items-center gap-1 p-4">
+                  <div className="flex flex-col items-center gap-1 p-4 border-b border-gray-100">
                     <Calendar size={18} className="text-cyan-400" />
                     <span className="text-xl font-bold text-gray-900">{formatKm(categoryIndicators.viajes.kmEsteAnyo)}</span>
                     <span className="text-xs text-gray-500 text-center">Km este año</span>
                   </div>
+                  {categoryIndicators.viajes.sinDestino > 0 ? (
+                    <Link
+                      to={categoryIndicators.viajes.sinDestinoUrl}
+                      className="col-span-2 flex items-center justify-center gap-2 p-3 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer"
+                      title="Ver viajes sin destino"
+                    >
+                      <AlertTriangle size={16} className="text-amber-500" />
+                      <span className="text-sm font-bold text-amber-600">{categoryIndicators.viajes.sinDestino}</span>
+                      <span className="text-xs text-amber-600 font-medium">viaje{categoryIndicators.viajes.sinDestino !== 1 ? 's' : ''} sin destino</span>
+                    </Link>
+                  ) : null}
                 </div>
               </div>
             )}
