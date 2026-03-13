@@ -124,7 +124,7 @@ export function Dashboard() {
     }
 
     // Teatros
-    const teatrosCat = catByName['Teatros']
+    const teatrosCat = catByName['Teatro, Musicales y Ópera']
     const teatros = teatrosCat ? activities.filter(a => a.category_id === teatrosCat.id) : []
     const teatroStats = {
       actores: new Set(teatros.map(a => String(a.fields?.actor ?? '')).filter(Boolean)).size,
