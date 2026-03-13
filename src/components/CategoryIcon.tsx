@@ -1,6 +1,6 @@
 import {
   BookOpen, Music, Plane, Film, Tv, UtensilsCrossed,
-  Folder, Dumbbell, Gamepad2, GraduationCap, Heart, Camera
+  Folder, Dumbbell, Gamepad2, GraduationCap, Heart, Camera, Theater
 } from 'lucide-react'
 
 const iconMap: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -16,6 +16,7 @@ const iconMap: Record<string, React.ComponentType<{ size?: number; className?: s
   'graduation': GraduationCap,
   'heart': Heart,
   'camera': Camera,
+  'theater': Theater,
 }
 
 export const availableIcons = Object.keys(iconMap)
