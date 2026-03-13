@@ -142,7 +142,9 @@ export function Dashboard() {
     const conciertosSinCiudad = conciertos.filter(a => !a.fields?.city || String(a.fields.city).trim() === '')
     const conciertoStats = {
       artistas: new Set(conciertos.map(a => String(a.fields?.artist ?? '')).filter(Boolean)).size,
-      ciudades: new Set(conciertos.map(a => String(a.fields?.city ?? '')).filter(Boolean)).size,
+      ciudades: new Set(
+        conciertos.flatMap(a => String(a.fields?.city ?? '').split(',').map(s => s.trim())).filter(Boolean)
+      ).size,
       festivales: conciertos.filter(a =>
         String(a.fields?.venue ?? '').toLowerCase().includes('festival') ||
         a.title.toLowerCase().includes('festival')
@@ -158,7 +160,9 @@ export function Dashboard() {
       actores: new Set(
         teatros.flatMap(a => String(a.fields?.actores ?? '').split(',').map(s => s.trim())).filter(Boolean)
       ).size,
-      ciudades: new Set(teatros.map(a => String(a.fields?.ciudad ?? '')).filter(Boolean)).size,
+      ciudades: new Set(
+        teatros.flatMap(a => String(a.fields?.ciudad ?? '').split(',').map(s => s.trim())).filter(Boolean)
+      ).size,
       venues: new Set(teatros.map(a => String(a.fields?.teatro ?? '')).filter(Boolean)).size,
     }
 
@@ -169,16 +173,22 @@ export function Dashboard() {
 
     const calcKm = (list: typeof viajes) =>
       list.reduce((sum, a) => {
-        const dest = String(a.fields?.destination ?? '')
-        const city = lookupCity(dest)
-        if (!city) return sum
-        return sum + haversineKm(HOME_COORDS.lat, HOME_COORDS.lng, city.lat, city.lng) * 2
+        const dests = String(a.fields?.destination ?? '').split(',').map(s => s.trim()).filter(Boolean)
+        return sum + dests.reduce((s, dest) => {
+          const city = lookupCity(dest)
+          if (!city) return s
+          return s + haversineKm(HOME_COORDS.lat, HOME_COORDS.lng, city.lat, city.lng) * 2
+        }, 0)
       }, 0)
 
     const viajesSinDestino = viajes.filter(a => !a.fields?.destination || String(a.fields.destination).trim() === '')
     const viajeStats = {
-      destinos: new Set(viajes.map(a => String(a.fields?.destination ?? '')).filter(Boolean)).size,
-      paises: new Set(viajes.map(a => String(a.fields?.country ?? '')).filter(Boolean)).size,
+      destinos: new Set(
+        viajes.flatMap(a => String(a.fields?.destination ?? '').split(',').map(s => s.trim())).filter(Boolean)
+      ).size,
+      paises: new Set(
+        viajes.flatMap(a => String(a.fields?.country ?? '').split(',').map(s => s.trim())).filter(Boolean)
+      ).size,
       kmTotales: calcKm(viajes),
       kmEsteAnyo: calcKm(viajesThisYear),
       sinDestino: viajesSinDestino.length,
