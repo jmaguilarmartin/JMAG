@@ -174,11 +174,14 @@ export function Dashboard() {
     const calcKm = (list: typeof viajes) =>
       list.reduce((sum, a) => {
         const dests = String(a.fields?.destination ?? '').split(',').map(s => s.trim()).filter(Boolean)
-        return sum + dests.reduce((s, dest) => {
-          const city = lookupCity(dest)
-          if (!city) return s
-          return s + haversineKm(HOME_COORDS.lat, HOME_COORDS.lng, city.lat, city.lng) * 2
+        const coords = dests.map(d => lookupCity(d)).filter(Boolean) as { lat: number; lng: number }[]
+        if (coords.length === 0) return sum
+        // Ruta: casa → dest1 → dest2 → ... → casa
+        const route = [HOME_COORDS, ...coords, HOME_COORDS]
+        const tripKm = route.slice(1).reduce((km, pt, i) => {
+          return km + haversineKm(route[i].lat, route[i].lng, pt.lat, pt.lng)
         }, 0)
+        return sum + tripKm
       }, 0)
 
     const viajesSinDestino = viajes.filter(a => !a.fields?.destination || String(a.fields.destination).trim() === '')
