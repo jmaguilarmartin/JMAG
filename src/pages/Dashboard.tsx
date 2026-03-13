@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
+  PieChart, Pie, Cell, Legend, LabelList
 } from 'recharts'
 import { Activity as ActivityIcon, Star, Calendar, TrendingUp, ArrowRight, ChevronLeft, ChevronRight, Mic2, MapPin, PartyPopper, User, Building2, Globe, Ruler, Navigation, AlertTriangle } from 'lucide-react'
 import { useActivities } from '../hooks/useActivities'
@@ -28,6 +28,24 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 function formatKm(km: number): string {
   if (km >= 1000) return `${(km / 1000).toFixed(1).replace('.', ',')}k km`
   return `${Math.round(km)} km`
+}
+
+function BarLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number }) {
+  const { x = 0, y = 0, width = 0, height = 0, value = 0 } = props
+  if (!value || value <= 0 || height < 18) return null
+  return (
+    <text
+      x={x + width / 2}
+      y={y + height / 2}
+      textAnchor="middle"
+      dominantBaseline="middle"
+      fill="white"
+      fontSize={10}
+      fontWeight="bold"
+    >
+      {value}
+    </text>
+  )
 }
 
 export function Dashboard() {
@@ -103,6 +121,16 @@ export function Dashboard() {
   const recentActivities = useMemo(() => {
     return activities.slice(0, 5)
   }, [activities])
+
+  const yearlyTotals = useMemo(() => {
+    const yearStr = selectedYear.toString()
+    const cats = activeCategories.map(cat => ({
+      ...cat,
+      total: activities.filter(a => a.category_id === cat.id && a.date.startsWith(yearStr)).length,
+    })).filter(c => c.total > 0)
+    const grand = cats.reduce((s, c) => s + c.total, 0)
+    return { cats, grand }
+  }, [activities, activeCategories, selectedYear])
 
   const categoryIndicators = useMemo(() => {
     const catByName = Object.fromEntries(categories.map(c => [c.name, c]))
@@ -258,13 +286,36 @@ export function Dashboard() {
                     cursor="pointer"
                     radius={i === activeCategories.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
                     onClick={(_: unknown, index: number) => handleBarClick(monthlyData[index] as { yearMonth: string })}
-                  />
+                  >
+                    <LabelList dataKey={cat.name} content={<BarLabel />} />
+                  </Bar>
                 ))}
               </BarChart>
             </ResponsiveContainer>
           ) : (
             <div className="h-[250px] flex items-center justify-center text-gray-400">
               Sin datos en {selectedYear}
+            </div>
+          )}
+          {yearlyTotals.cats.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-xs text-gray-400 mb-2 text-center">Total {selectedYear}</p>
+              <div className="flex flex-wrap gap-1.5 justify-center">
+                {yearlyTotals.cats.map(cat => (
+                  <span
+                    key={cat.id}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-white text-xs font-medium"
+                    style={{ backgroundColor: cat.color }}
+                  >
+                    {cat.name}
+                    <span className="bg-black/20 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none">{cat.total}</span>
+                  </span>
+                ))}
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-700 text-white text-xs font-medium">
+                  Total
+                  <span className="bg-black/20 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none">{yearlyTotals.grand}</span>
+                </span>
+              </div>
             </div>
           )}
           <p className="text-xs text-gray-400 mt-2 text-center">Haz clic en un mes para ver sus actividades</p>
