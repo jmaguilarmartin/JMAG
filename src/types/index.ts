@@ -40,4 +40,5 @@ export type ActivityFilters = {
   date_from?: string
   date_to?: string
   tags?: string[]
+  missing_field?: string
 }

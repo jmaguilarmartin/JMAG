@@ -11,11 +11,21 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import type { ActivityFilters } from '../types'
 
+const MISSING_FIELD_LABELS: Record<string, string> = {
+  city: 'ciudad',
+  destination: 'destino',
+  country: 'país',
+  artist: 'artista',
+  venue: 'lugar',
+  actor: 'actor',
+}
+
 function getInitialFilters(params: URLSearchParams): ActivityFilters {
   const f: ActivityFilters = {}
   if (params.get('date_from')) f.date_from = params.get('date_from')!
   if (params.get('date_to')) f.date_to = params.get('date_to')!
   if (params.get('category_id')) f.category_id = params.get('category_id')!
+  if (params.get('missing_field')) f.missing_field = params.get('missing_field')!
   if (Object.keys(f).length > 0) return f
 
   const saved = sessionStorage.getItem('activityFilters')
@@ -41,7 +51,7 @@ export function Activities() {
   }
 
   useEffect(() => {
-    const hasAny = filters.category_id || filters.search || filters.rating || filters.date_from || filters.date_to
+    const hasAny = filters.category_id || filters.search || filters.rating || filters.date_from || filters.date_to || filters.missing_field
     if (hasAny) {
       sessionStorage.setItem('activityFilters', JSON.stringify(filters))
     } else {
@@ -55,7 +65,7 @@ export function Activities() {
     sessionStorage.removeItem('activityFilters')
   }
 
-  const hasFilters = filters.category_id || filters.search || filters.rating || filters.date_from || filters.date_to
+  const hasFilters = filters.category_id || filters.search || filters.rating || filters.date_from || filters.date_to || filters.missing_field
 
   const handleExport = () => {
     if (activities.length === 0) return
@@ -191,6 +201,11 @@ export function Activities() {
                 {filters.date_to && (
                   <span className="bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full">
                     Hasta: {filters.date_to}
+                  </span>
+                )}
+                {filters.missing_field && (
+                  <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                    Sin {MISSING_FIELD_LABELS[filters.missing_field] ?? filters.missing_field}
                   </span>
                 )}
               </div>

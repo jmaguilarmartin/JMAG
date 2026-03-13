@@ -49,10 +49,15 @@ export function useActivities(filters?: ActivityFilters) {
       })
     }
 
+    if (filters?.missing_field) {
+      const key = filters.missing_field
+      result = result.filter(a => !a.fields?.[key] || String(a.fields[key]).trim() === '')
+    }
+
     setActivities(result)
-    setCount(filters?.search ? result.length : (totalCount ?? 0))
+    setCount(filters?.search || filters?.missing_field ? result.length : (totalCount ?? 0))
     setLoading(false)
-  }, [user, filters?.category_id, filters?.search, filters?.rating, filters?.date_from, filters?.date_to])
+  }, [user, filters?.category_id, filters?.search, filters?.rating, filters?.date_from, filters?.date_to, filters?.missing_field])
 
   useEffect(() => {
     fetchActivities()
