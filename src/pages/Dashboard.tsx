@@ -127,9 +127,11 @@ export function Dashboard() {
     const teatrosCat = catByName['Teatro, Musicales y Ópera']
     const teatros = teatrosCat ? activities.filter(a => a.category_id === teatrosCat.id) : []
     const teatroStats = {
-      actores: new Set(teatros.map(a => String(a.fields?.actor ?? '')).filter(Boolean)).size,
-      ciudades: new Set(teatros.map(a => String(a.fields?.city ?? '')).filter(Boolean)).size,
-      venues: new Set(teatros.map(a => String(a.fields?.venue ?? '')).filter(Boolean)).size,
+      actores: new Set(
+        teatros.flatMap(a => String(a.fields?.actores ?? '').split(',').map(s => s.trim())).filter(Boolean)
+      ).size,
+      ciudades: new Set(teatros.map(a => String(a.fields?.ciudad ?? '')).filter(Boolean)).size,
+      venues: new Set(teatros.map(a => String(a.fields?.teatro ?? '')).filter(Boolean)).size,
     }
 
     // Viajes
