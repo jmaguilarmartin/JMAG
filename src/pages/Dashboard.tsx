@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
+  PieChart, Pie, Cell, Legend, LabelList
 } from 'recharts'
-import { Activity as ActivityIcon, Star, Calendar, TrendingUp, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Activity as ActivityIcon, Star, Calendar, TrendingUp, ArrowRight, ChevronLeft, ChevronRight, Mic2, MapPin, PartyPopper, User, Building2, Globe, Ruler, Navigation, AlertTriangle } from 'lucide-react'
 import { useActivities } from '../hooks/useActivities'
 import { useCategories } from '../hooks/useCategories'
 import { StatsCard } from '../components/StatsCard'
@@ -12,6 +12,41 @@ import { CategoryIcon } from '../components/CategoryIcon'
 import { StarRating } from '../components/StarRating'
 import { format, lastDayOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { lookupCity } from '../data/cities'
+
+const HOME_COORDS = { lat: 40.42, lng: -3.70 } // Madrid
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function formatKm(km: number): string {
+  if (km >= 1000) return `${(km / 1000).toFixed(1).replace('.', ',')}k km`
+  return `${Math.round(km)} km`
+}
+
+function BarLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number }) {
+  const { x = 0, y = 0, width = 0, height = 0, value = 0 } = props
+  if (!value || value <= 0 || height < 18) return null
+  return (
+    <text
+      x={x + width / 2}
+      y={y + height / 2}
+      textAnchor="middle"
+      dominantBaseline="middle"
+      fill="white"
+      fontSize={10}
+      fontWeight="bold"
+    >
+      {value}
+    </text>
+  )
+}
 
 export function Dashboard() {
   const { activities, loading: loadingActivities } = useActivities()
@@ -86,6 +121,92 @@ export function Dashboard() {
   const recentActivities = useMemo(() => {
     return activities.slice(0, 5)
   }, [activities])
+
+  const yearlyTotals = useMemo(() => {
+    const yearStr = selectedYear.toString()
+    const cats = activeCategories.map(cat => ({
+      ...cat,
+      total: activities.filter(a => a.category_id === cat.id && a.date.startsWith(yearStr)).length,
+    })).filter(c => c.total > 0)
+    const grand = cats.reduce((s, c) => s + c.total, 0)
+    return { cats, grand }
+  }, [activities, activeCategories, selectedYear])
+
+  const categoryIndicators = useMemo(() => {
+    const catByName = Object.fromEntries(categories.map(c => [c.name, c]))
+    const currentYear = new Date().getFullYear().toString()
+
+    // Conciertos
+    const conciertosCat = catByName['Conciertos']
+    const conciertos = conciertosCat ? activities.filter(a => a.category_id === conciertosCat.id) : []
+    const conciertosSinCiudad = conciertos.filter(a => !a.fields?.city || String(a.fields.city).trim() === '')
+    const conciertoStats = {
+      artistas: new Set(conciertos.map(a => String(a.fields?.artist ?? '')).filter(Boolean)).size,
+      ciudades: new Set(
+        conciertos.flatMap(a => String(a.fields?.city ?? '').split(',').map(s => s.trim())).filter(Boolean)
+      ).size,
+      festivales: conciertos.filter(a =>
+        String(a.fields?.venue ?? '').toLowerCase().includes('festival') ||
+        a.title.toLowerCase().includes('festival')
+      ).length,
+      sinCiudad: conciertosSinCiudad.length,
+      sinCiudadUrl: conciertosCat ? `/activities?category_id=${conciertosCat.id}&missing_field=city` : '',
+    }
+
+    // Teatros
+    const teatrosCat = catByName['Teatro, Musicales y Ópera']
+    const teatros = teatrosCat ? activities.filter(a => a.category_id === teatrosCat.id) : []
+    const teatroStats = {
+      actores: new Set(
+        teatros.flatMap(a => String(a.fields?.actores ?? '').split(',').map(s => s.trim())).filter(Boolean)
+      ).size,
+      ciudades: new Set(
+        teatros.flatMap(a => String(a.fields?.ciudad ?? '').split(',').map(s => s.trim())).filter(Boolean)
+      ).size,
+      venues: new Set(teatros.map(a => String(a.fields?.teatro ?? '')).filter(Boolean)).size,
+    }
+
+    // Viajes
+    const viajesCat = catByName['Viajes']
+    const viajes = viajesCat ? activities.filter(a => a.category_id === viajesCat.id) : []
+    const viajesThisYear = viajes.filter(a => a.date.startsWith(currentYear))
+
+    const calcKm = (list: typeof viajes) =>
+      list.reduce((sum, a) => {
+        const dests = String(a.fields?.destination ?? '').split(',').map(s => s.trim()).filter(Boolean)
+        const coords = dests.map(d => lookupCity(d)).filter(Boolean) as { lat: number; lng: number }[]
+        if (coords.length === 0) return sum
+        // Ruta: casa → dest1 → dest2 → ... → casa
+        const route = [HOME_COORDS, ...coords, HOME_COORDS]
+        const tripKm = route.slice(1).reduce((km, pt, i) => {
+          return km + haversineKm(route[i].lat, route[i].lng, pt.lat, pt.lng)
+        }, 0)
+        return sum + tripKm
+      }, 0)
+
+    const viajesSinDestino = viajes.filter(a => !a.fields?.destination || String(a.fields.destination).trim() === '')
+    const viajeStats = {
+      destinos: new Set(
+        viajes.flatMap(a => String(a.fields?.destination ?? '').split(',').map(s => s.trim())).filter(Boolean)
+      ).size,
+      paises: new Set(
+        viajes.flatMap(a => String(a.fields?.country ?? '').split(',').map(s => s.trim())).filter(Boolean)
+      ).size,
+      kmTotales: calcKm(viajes),
+      kmEsteAnyo: calcKm(viajesThisYear),
+      sinDestino: viajesSinDestino.length,
+      sinDestinoUrl: viajesCat ? `/activities?category_id=${viajesCat.id}&missing_field=destination` : '',
+    }
+
+    return {
+      conciertos: conciertoStats,
+      hasConciertoData: conciertos.length > 0,
+      teatros: teatroStats,
+      hasTeatroData: teatros.length > 0,
+      viajes: viajeStats,
+      hasViajeData: viajes.length > 0,
+    }
+  }, [activities, categories])
 
   if (loadingActivities || loadingCategories) {
     return (
@@ -178,13 +299,36 @@ export function Dashboard() {
                     cursor="pointer"
                     radius={i === activeCategories.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
                     onClick={(_: unknown, index: number) => handleBarClick(monthlyData[index] as { yearMonth: string })}
-                  />
+                  >
+                    <LabelList dataKey={cat.name} content={<BarLabel />} />
+                  </Bar>
                 ))}
               </BarChart>
             </ResponsiveContainer>
           ) : (
             <div className="h-[250px] flex items-center justify-center text-gray-400">
               Sin datos en {selectedYear}
+            </div>
+          )}
+          {yearlyTotals.cats.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-xs text-gray-400 mb-2 text-center">Total {selectedYear}</p>
+              <div className="flex flex-wrap gap-1.5 justify-center">
+                {yearlyTotals.cats.map(cat => (
+                  <span
+                    key={cat.id}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-white text-xs font-medium"
+                    style={{ backgroundColor: cat.color }}
+                  >
+                    {cat.name}
+                    <span className="bg-black/20 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none">{cat.total}</span>
+                  </span>
+                ))}
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-700 text-white text-xs font-medium">
+                  Total
+                  <span className="bg-black/20 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none">{yearlyTotals.grand}</span>
+                </span>
+              </div>
             </div>
           )}
           <p className="text-xs text-gray-400 mt-2 text-center">Haz clic en un mes para ver sus actividades</p>
@@ -231,6 +375,124 @@ export function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Category-specific indicators */}
+      {(categoryIndicators.hasConciertoData || categoryIndicators.hasTeatroData || categoryIndicators.hasViajeData) && (
+        <div>
+          <h2 className="text-base font-semibold text-gray-700 mb-3">Indicadores por categoría</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+
+            {/* Conciertos */}
+            {categoryIndicators.hasConciertoData && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 text-white" style={{ backgroundColor: '#ec4899' }}>
+                  <CategoryIcon icon="music" size={16} />
+                  <span className="text-sm font-semibold">Conciertos</span>
+                </div>
+                <div className="grid grid-cols-3 divide-x divide-gray-100">
+                  <div className="flex flex-col items-center gap-1 p-4">
+                    <Mic2 size={18} className="text-pink-400" />
+                    <span className="text-xl font-bold text-gray-900">{categoryIndicators.conciertos.artistas}</span>
+                    <span className="text-xs text-gray-500 text-center">Artistas</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 p-4">
+                    <MapPin size={18} className="text-pink-400" />
+                    <span className="text-xl font-bold text-gray-900">{categoryIndicators.conciertos.ciudades}</span>
+                    <span className="text-xs text-gray-500 text-center">Ciudades</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 p-4">
+                    <PartyPopper size={18} className="text-pink-400" />
+                    <span className="text-xl font-bold text-gray-900">{categoryIndicators.conciertos.festivales}</span>
+                    <span className="text-xs text-gray-500 text-center">Festivales</span>
+                  </div>
+                  {categoryIndicators.conciertos.sinCiudad > 0 ? (
+                    <Link
+                      to={categoryIndicators.conciertos.sinCiudadUrl}
+                      className="col-span-3 flex items-center justify-center gap-2 p-3 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer"
+                      title="Ver conciertos sin ciudad"
+                    >
+                      <AlertTriangle size={16} className="text-amber-500" />
+                      <span className="text-sm font-bold text-amber-600">{categoryIndicators.conciertos.sinCiudad}</span>
+                      <span className="text-xs text-amber-600 font-medium">concierto{categoryIndicators.conciertos.sinCiudad !== 1 ? 's' : ''} sin ciudad</span>
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
+            )}
+
+            {/* Teatros */}
+            {categoryIndicators.hasTeatroData && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 text-white" style={{ backgroundColor: '#7c3aed' }}>
+                  <CategoryIcon icon="theater" size={16} />
+                  <span className="text-sm font-semibold">Teatros</span>
+                </div>
+                <div className="grid grid-cols-3 divide-x divide-gray-100">
+                  <div className="flex flex-col items-center gap-1 p-4">
+                    <User size={18} className="text-violet-400" />
+                    <span className="text-xl font-bold text-gray-900">{categoryIndicators.teatros.actores}</span>
+                    <span className="text-xs text-gray-500 text-center">Actores</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 p-4">
+                    <MapPin size={18} className="text-violet-400" />
+                    <span className="text-xl font-bold text-gray-900">{categoryIndicators.teatros.ciudades}</span>
+                    <span className="text-xs text-gray-500 text-center">Ciudades</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 p-4">
+                    <Building2 size={18} className="text-violet-400" />
+                    <span className="text-xl font-bold text-gray-900">{categoryIndicators.teatros.venues}</span>
+                    <span className="text-xs text-gray-500 text-center">Teatros</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Viajes */}
+            {categoryIndicators.hasViajeData && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 text-white" style={{ backgroundColor: '#06b6d4' }}>
+                  <CategoryIcon icon="plane" size={16} />
+                  <span className="text-sm font-semibold">Viajes</span>
+                </div>
+                <div className="grid grid-cols-2 divide-x divide-gray-100">
+                  <div className="flex flex-col items-center gap-1 p-4 border-b border-gray-100">
+                    <Navigation size={18} className="text-cyan-400" />
+                    <span className="text-xl font-bold text-gray-900">{categoryIndicators.viajes.destinos}</span>
+                    <span className="text-xs text-gray-500 text-center">Destinos</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 p-4 border-b border-gray-100">
+                    <Globe size={18} className="text-cyan-400" />
+                    <span className="text-xl font-bold text-gray-900">{categoryIndicators.viajes.paises}</span>
+                    <span className="text-xs text-gray-500 text-center">Países</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 p-4 border-b border-gray-100">
+                    <Ruler size={18} className="text-cyan-400" />
+                    <span className="text-xl font-bold text-gray-900">{formatKm(categoryIndicators.viajes.kmTotales)}</span>
+                    <span className="text-xs text-gray-500 text-center">Km totales</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 p-4 border-b border-gray-100">
+                    <Calendar size={18} className="text-cyan-400" />
+                    <span className="text-xl font-bold text-gray-900">{formatKm(categoryIndicators.viajes.kmEsteAnyo)}</span>
+                    <span className="text-xs text-gray-500 text-center">Km este año</span>
+                  </div>
+                  {categoryIndicators.viajes.sinDestino > 0 ? (
+                    <Link
+                      to={categoryIndicators.viajes.sinDestinoUrl}
+                      className="col-span-2 flex items-center justify-center gap-2 p-3 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer"
+                      title="Ver viajes sin destino"
+                    >
+                      <AlertTriangle size={16} className="text-amber-500" />
+                      <span className="text-sm font-bold text-amber-600">{categoryIndicators.viajes.sinDestino}</span>
+                      <span className="text-xs text-amber-600 font-medium">viaje{categoryIndicators.viajes.sinDestino !== 1 ? 's' : ''} sin destino</span>
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
 
       {/* Recent activities */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
