@@ -4,7 +4,9 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, LabelList
 } from 'recharts'
-import { Activity as ActivityIcon, Star, Calendar, TrendingUp, ArrowRight, ChevronLeft, ChevronRight, Mic2, MapPin, PartyPopper, User, Building2, Globe, Ruler, Navigation, AlertTriangle } from 'lucide-react'
+import { Activity as ActivityIcon, Star, Calendar, TrendingUp, ArrowRight, ChevronLeft, ChevronRight, Mic2, MapPin, PartyPopper, User, Building2, Globe, Ruler, Navigation, AlertTriangle, Download } from 'lucide-react'
+// @ts-ignore
+import * as XLSX from 'xlsx'
 import { useActivities } from '../hooks/useActivities'
 import { useCategories } from '../hooks/useCategories'
 import { StatsCard } from '../components/StatsCard'
@@ -208,6 +210,83 @@ export function Dashboard() {
     }
   }, [activities, categories])
 
+  const handleExportExcel = () => {
+    if (activities.length === 0) return
+
+    const wb = XLSX.utils.book_new()
+    const usedSheetNames = new Set<string>()
+
+    const sanitizeSheetName = (name: string): string => {
+      // Excel sheet names: max 31 chars, no  : \ / ? * [ ]
+      let base = (name || 'Sin categoria').replace(/[\\/?*[\]:]/g, ' ').trim().slice(0, 31) || 'Hoja'
+      let candidate = base
+      let i = 2
+      while (usedSheetNames.has(candidate.toLowerCase())) {
+        const suffix = ` (${i})`
+        base = base.slice(0, 31 - suffix.length)
+        candidate = `${base}${suffix}`
+        i++
+      }
+      usedSheetNames.add(candidate.toLowerCase())
+      return candidate
+    }
+
+    // Group activities by category id, preserving categories with at least one activity
+    const activitiesByCategory = new Map<string, typeof activities>()
+    for (const a of activities) {
+      const list = activitiesByCategory.get(a.category_id) ?? []
+      list.push(a)
+      activitiesByCategory.set(a.category_id, list)
+    }
+
+    // Order: defined categories first (by their order), then any leftover groups
+    const orderedCategoryIds = [
+      ...categories.map(c => c.id).filter(id => activitiesByCategory.has(id)),
+      ...Array.from(activitiesByCategory.keys()).filter(id => !categories.some(c => c.id === id)),
+    ]
+
+    for (const categoryId of orderedCategoryIds) {
+      const catActivities = activitiesByCategory.get(categoryId)!
+      const category = categories.find(c => c.id === categoryId)
+
+      // Build the ordered list of custom field keys -> labels for this category
+      const fieldKeyLabelMap = new Map<string, string>()
+      category?.fields?.forEach(f => fieldKeyLabelMap.set(f.key, f.label))
+      // Include any extra keys present in the data but not in the category definition
+      catActivities.forEach(a => {
+        if (a.fields) {
+          Object.keys(a.fields).forEach(k => {
+            if (!fieldKeyLabelMap.has(k)) fieldKeyLabelMap.set(k, k)
+          })
+        }
+      })
+      const customFieldKeys = Array.from(fieldKeyLabelMap.keys())
+
+      const rows = catActivities.map(a => {
+        const row: Record<string, string | number | null> = {
+          'Titulo': a.title,
+          'Categoria': a.category?.name ?? category?.name ?? '',
+          'Fecha inicio': a.date,
+          'Fecha fin': a.date_end ?? '',
+          'Valoracion': a.rating ?? '',
+          'Etiquetas': a.tags.join(', '),
+          'Notas': a.notes ?? '',
+        }
+        customFieldKeys.forEach(key => {
+          const label = fieldKeyLabelMap.get(key) ?? key
+          row[label] = a.fields?.[key] ?? ''
+        })
+        return row
+      })
+
+      const ws = XLSX.utils.json_to_sheet(rows)
+      const sheetName = sanitizeSheetName(category?.name ?? 'Sin categoria')
+      XLSX.utils.book_append_sheet(wb, ws, sheetName)
+    }
+
+    XLSX.writeFile(wb, 'actividades-por-tipo.xlsx')
+  }
+
   if (loadingActivities || loadingCategories) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -218,9 +297,20 @@ export function Dashboard() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500 mt-1">Resumen de tus actividades</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-500 mt-1">Resumen de tus actividades</p>
+        </div>
+        <button
+          onClick={handleExportExcel}
+          disabled={activities.length === 0}
+          title="Exportar todas las actividades a Excel (una hoja por tipo)"
+          className="flex items-center gap-2 border border-gray-300 text-gray-700 bg-white px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 transition-colors text-sm disabled:opacity-50 shrink-0"
+        >
+          <Download size={18} />
+          <span className="hidden sm:inline">Exportar Excel</span>
+        </button>
       </div>
 
       {/* Stats cards */}
